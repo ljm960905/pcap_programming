@@ -10,58 +10,60 @@ void usage() {
   printf("sample: pcap_test wlan0\n");
 }
 
-void callback(u_char *useless, const struct pcap_pkthdr *pkthdr, const u_char *packet)
+void packet_info(u_char *useless, const struct pcap_pkthdr *pkthdr, const u_char *packet)
 {
-	static int count =1;
-	struct libnet_ethernet_hdr *ep;
-	unsigned short ether_type;
-	int chcnt = 0;
-	int length = pkthdr->len;
-	int i;
-	u_char *ptr;
+        static int count =1;
+        struct libnet_ethernet_hdr *ep;
+        unsigned short ether_type;
+        int chcnt = 0;
+        int length = pkthdr->len;
+        int i;
+        u_char *ptr;
 
-	ep = (struct libnet_ethernet_hdr *)packet;
-	packet += sizeof(struct libnet_ethernet_hdr);
-	ether_type = ntohs(ep->ether_type);
-	
-	printf("--------------------------------------------------------\n");
+        ep = (struct libnet_ethernet_hdr *)packet;
+        packet += sizeof(struct libnet_ethernet_hdr);
+        ether_type = ntohs(ep->ether_type);
 
-	i = ETHER_ADDR_LEN;
-	printf("Src mac address :");
-	ptr = ep->ether_shost;
-	do{
-		printf("%s%x",(i==ETHER_ADDR_LEN)? " " : ":",*ptr++);
-	}while(--i>0);
-	printf("\n");
+        printf("--------------------------------------------------------\n");
 
-	i = ETHER_ADDR_LEN;
-	printf("Dst mac address :");
-	ptr = ep->ether_dhost;
-	do{
-		printf("%s%x",(i==ETHER_ADDR_LEN)? " " : ":",*ptr++);
-	}while(--i>0);
-	printf("\n");
+        i = ETHER_ADDR_LEN;
+        printf("Src mac address :");
 
-	if(ether_type == ETHERTYPE_IP)
-	{
-		iph = (struct libnet_ipv4_hdr *)packet;
-		printf("Src address : %s\n", inet_ntoa(iph->ip_src));
-		printf("Dst address : %s\n", inet_ntoa(iph->ip_dst));
-	
-		if(iph->ip_p == IPPROTO_TCP)
-		{
-			tcph = (struct libnet_tcp_hdr *)(packet + iph->ip_hl*4);
-			printf("Src port : %d\n", ntohs(tcph->th_sport));
-			printf("Dst port : %d\n", ntohs(tcph->th_dport));
-		}
-		
-		
-		for(int j=0;j<16;j++){
-			printf("%02x", *(packet++));
-			if((++chcnt % 16) == 0)
-				printf("\n");
-		}
-	}
+        ptr = ep->ether_shost;
+        do{
+                printf("%s%x",(i==ETHER_ADDR_LEN)? " " : ":",*ptr++);
+        }while(--i>0);
+        printf("\n");
+
+        i = ETHER_ADDR_LEN;
+        printf("Dst mac address :");
+        ptr = ep->ether_dhost;
+        do{
+                printf("%s%x",(i==ETHER_ADDR_LEN)? " " : ":",*ptr++);
+        }while(--i>0);
+        printf("\n");
+
+        if(ether_type == ETHERTYPE_IP)
+        {
+                iph = (struct libnet_ipv4_hdr *)packet;
+                printf("Src address : %s\n", inet_ntoa(iph->ip_src));
+                printf("Dst address : %s\n", inet_ntoa(iph->ip_dst));
+
+                if(iph->ip_p == IPPROTO_TCP)
+                {
+
+                        tcph = (struct libnet_tcp_hdr *)(packet + iph->ip_hl*4);
+                        printf("Src port : %d\n", ntohs(tcph->th_sport));
+                        printf("Dst port : %d\n", ntohs(tcph->th_dport));
+                }
+
+
+                for(int j=0;j<16;j++){
+                        printf("%02x", *(packet++));
+                        if((++chcnt % 16) == 0)
+                                printf("\n");
+                }
+        }
 }
 
 int main(int argc, char* argv[]) {
@@ -79,7 +81,16 @@ int main(int argc, char* argv[]) {
     return -1;
   }
 
-  pcap_loop(handle,0,callback,NULL);
+   while (true) {
+    struct pcap_pkthdr* header;
+    const u_char* packet;
+    int res = pcap_next_ex(handle, &header, &packet);
+    if (res == 0) continue;
+    if (res == -1 || res == -2) break;
+    printf("%u bytes captured\n", header->caplen);
+    packet_info(NULL,header,packet);
+  }
+
   pcap_close(handle);
   return 0;
 }
